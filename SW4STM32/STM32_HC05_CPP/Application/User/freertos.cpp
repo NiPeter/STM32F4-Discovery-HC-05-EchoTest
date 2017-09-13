@@ -64,12 +64,14 @@
 osThreadId defaultTaskHandle;
 osThreadId rxTaskHandle;
 osThreadId txTaskHandle;
+osThreadId ledTaskHandle;
 osSemaphoreId txSemHandle;
 osSemaphoreId rxSemHandle;
 
 /* USER CODE BEGIN Variables */
 
 HC05			Bluetooth(&huart2);
+TickType_t xPeriod = 200;	// Period*5 -> xPeriod = 200 is Freq = 1/2 Hz
 
 /* USER CODE END Variables */
 
@@ -77,6 +79,7 @@ HC05			Bluetooth(&huart2);
 void StartDefaultTask(void const * argument);
 void StartRxTask(void const * argument);
 void StartTxTask(void const * argument);
+void StartLedTask(void const * argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -99,11 +102,11 @@ void MX_FREERTOS_Init(void) {
   /* Create the semaphores(s) */
   /* definition and creation of txSem */
   osSemaphoreDef(txSem);
-  txSemHandle = osSemaphoreCreate(osSemaphore(txSem), 15);
+  txSemHandle = osSemaphoreCreate(osSemaphore(txSem), 1);
 
   /* definition and creation of rxSem */
   osSemaphoreDef(rxSem);
-  rxSemHandle = osSemaphoreCreate(osSemaphore(rxSem), 15);
+  rxSemHandle = osSemaphoreCreate(osSemaphore(rxSem), 1);
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
@@ -115,16 +118,20 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 256);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* definition and creation of rxTask */
-  osThreadDef(rxTask, StartRxTask, osPriorityRealtime, 0, 128);
+  osThreadDef(rxTask, StartRxTask, osPriorityRealtime, 0, 256);
   rxTaskHandle = osThreadCreate(osThread(rxTask), NULL);
 
   /* definition and creation of txTask */
-  osThreadDef(txTask, StartTxTask, osPriorityRealtime, 0, 128);
+  osThreadDef(txTask, StartTxTask, osPriorityRealtime, 0, 256);
   txTaskHandle = osThreadCreate(osThread(txTask), NULL);
+
+  /* definition and creation of ledTask */
+  osThreadDef(ledTask, StartLedTask, osPriorityNormal, 0, 128);
+  ledTaskHandle = osThreadCreate(osThread(ledTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -149,9 +156,10 @@ void StartDefaultTask(void const * argument)
 
 	  if(Bluetooth.isAvailable() == true){
 		  char c = Bluetooth.readChar();
+		  xPeriod = c;
 		  Bluetooth.writeChar(c);
-	  }
-
+	  }else
+		  osDelay(10);
   }
   /* USER CODE END StartDefaultTask */
 }
@@ -182,6 +190,19 @@ void StartTxTask(void const * argument)
 		Bluetooth.processTxISR();
 	}
   /* USER CODE END StartTxTask */
+}
+
+/* StartLedTask function */
+void StartLedTask(void const * argument)
+{
+  /* USER CODE BEGIN StartLedTask */
+	/* Infinite loop */
+  for(;;)
+  {
+    HAL_GPIO_TogglePin(LD3_GPIO_Port,LD3_Pin|LD4_Pin|LD5_Pin|LD6_Pin);
+    vTaskDelay(xPeriod*5);
+  }
+  /* USER CODE END StartLedTask */
 }
 
 /* USER CODE BEGIN Application */
