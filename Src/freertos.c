@@ -57,6 +57,10 @@
 
 /* Variables -----------------------------------------------------------------*/
 osThreadId defaultTaskHandle;
+osThreadId rxTaskHandle;
+osThreadId txTaskHandle;
+osSemaphoreId txSemHandle;
+osSemaphoreId rxSemHandle;
 
 /* USER CODE BEGIN Variables */
 
@@ -64,6 +68,8 @@ osThreadId defaultTaskHandle;
 
 /* Function prototypes -------------------------------------------------------*/
 void StartDefaultTask(void const * argument);
+void StartRxTask(void const * argument);
+void StartTxTask(void const * argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -84,6 +90,15 @@ void MX_FREERTOS_Init(void) {
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
 
+  /* Create the semaphores(s) */
+  /* definition and creation of txSem */
+  osSemaphoreDef(txSem);
+  txSemHandle = osSemaphoreCreate(osSemaphore(txSem), 15);
+
+  /* definition and creation of rxSem */
+  osSemaphoreDef(rxSem);
+  rxSemHandle = osSemaphoreCreate(osSemaphore(rxSem), 15);
+
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
@@ -96,6 +111,14 @@ void MX_FREERTOS_Init(void) {
   /* definition and creation of defaultTask */
   osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+
+  /* definition and creation of rxTask */
+  osThreadDef(rxTask, StartRxTask, osPriorityRealtime, 0, 128);
+  rxTaskHandle = osThreadCreate(osThread(rxTask), NULL);
+
+  /* definition and creation of txTask */
+  osThreadDef(txTask, StartTxTask, osPriorityRealtime, 0, 128);
+  txTaskHandle = osThreadCreate(osThread(txTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -117,6 +140,30 @@ void StartDefaultTask(void const * argument)
     osDelay(1);
   }
   /* USER CODE END StartDefaultTask */
+}
+
+/* StartRxTask function */
+void StartRxTask(void const * argument)
+{
+  /* USER CODE BEGIN StartRxTask */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartRxTask */
+}
+
+/* StartTxTask function */
+void StartTxTask(void const * argument)
+{
+  /* USER CODE BEGIN StartTxTask */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartTxTask */
 }
 
 /* USER CODE BEGIN Application */

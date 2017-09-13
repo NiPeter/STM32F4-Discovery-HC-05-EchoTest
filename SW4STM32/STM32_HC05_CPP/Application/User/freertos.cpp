@@ -53,17 +53,30 @@
 
 /* USER CODE BEGIN Includes */
 
+#include "gpio.h"
+#include "usart.h"
+
+#include <Communicator/Serial/HC05/HC05.hpp>
+
 /* USER CODE END Includes */
 
 /* Variables -----------------------------------------------------------------*/
 osThreadId defaultTaskHandle;
+osThreadId rxTaskHandle;
+osThreadId txTaskHandle;
+osSemaphoreId txSemHandle;
+osSemaphoreId rxSemHandle;
 
 /* USER CODE BEGIN Variables */
+
+HC05			Bluetooth(&huart2);
 
 /* USER CODE END Variables */
 
 /* Function prototypes -------------------------------------------------------*/
 void StartDefaultTask(void const * argument);
+void StartRxTask(void const * argument);
+void StartTxTask(void const * argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -77,12 +90,20 @@ void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
-
   /* USER CODE END Init */
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
+
+  /* Create the semaphores(s) */
+  /* definition and creation of txSem */
+  osSemaphoreDef(txSem);
+  txSemHandle = osSemaphoreCreate(osSemaphore(txSem), 15);
+
+  /* definition and creation of rxSem */
+  osSemaphoreDef(rxSem);
+  rxSemHandle = osSemaphoreCreate(osSemaphore(rxSem), 15);
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
@@ -96,6 +117,14 @@ void MX_FREERTOS_Init(void) {
   /* definition and creation of defaultTask */
   osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+
+  /* definition and creation of rxTask */
+  osThreadDef(rxTask, StartRxTask, osPriorityRealtime, 0, 128);
+  rxTaskHandle = osThreadCreate(osThread(rxTask), NULL);
+
+  /* definition and creation of txTask */
+  osThreadDef(txTask, StartTxTask, osPriorityRealtime, 0, 128);
+  txTaskHandle = osThreadCreate(osThread(txTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -111,15 +140,76 @@ void StartDefaultTask(void const * argument)
 {
 
   /* USER CODE BEGIN StartDefaultTask */
+
+	Bluetooth.begin();
+
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+
+	  if(Bluetooth.isAvailable() == true){
+		  char c = Bluetooth.readChar();
+		  Bluetooth.writeChar(c);
+	  }
+
   }
   /* USER CODE END StartDefaultTask */
 }
 
+/* StartRxTask function */
+void StartRxTask(void const * argument)
+{
+  /* USER CODE BEGIN StartRxTask */
+	osSemaphoreWait(rxSemHandle,osWaitForever);
+	/* Infinite loop */
+	for(;;)
+	{
+		osSemaphoreWait(rxSemHandle,osWaitForever);
+		Bluetooth.processRxISR();
+	}
+  /* USER CODE END StartRxTask */
+}
+
+/* StartTxTask function */
+void StartTxTask(void const * argument)
+{
+  /* USER CODE BEGIN StartTxTask */
+	osSemaphoreWait(txSemHandle,osWaitForever);
+	/* Infinite loop */
+	for(;;)
+	{
+		osSemaphoreWait(txSemHandle,osWaitForever);
+		Bluetooth.processTxISR();
+	}
+  /* USER CODE END StartTxTask */
+}
+
 /* USER CODE BEGIN Application */
+
+/**
+ *
+ * @param huart
+ */
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
+
+	if(huart->Instance == Bluetooth.getUARTInstance())
+		osSemaphoreRelease(txSemHandle);
+
+}
+/********************************************************/
+
+
+
+/*
+ *
+ */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
+
+	if(huart->Instance == Bluetooth.getUARTInstance())
+		osSemaphoreRelease(rxSemHandle);
+
+}
+/********************************************************/
 
 /* USER CODE END Application */
 
